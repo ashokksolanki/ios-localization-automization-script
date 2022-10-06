@@ -1,53 +1,12 @@
 #!/usr/bin/ruby
 
 require 'fileutils'
+require_relative 'shared_localization_utilities'
 
 # Base directory
-baseDirectory = "path-to-localization-folder-/Localization"
+baseDirectory = "path-to-localization-files-folder/Localization"
 localisedStringFileName = "Localizable.strings"
 extractedDirectoryName = "untranslated_strings"
-
-# map strings to key-value pair
-def getFileStringMapping(fileData)
-    fileStringMapping = Hash.new
-    for value in fileData do
-        if isValidKeyValueLocalisationString(value)
-            key, keyValue = extractKeyValueFromLocalisationString(value)
-            fileStringMapping[key] = keyValue
-        end
-    end   
-    return fileStringMapping
-    
-end
-
-# extract un-translated string from given files data and mapping string
-def getUnTransalatedStringArray(localisedFileData, baseFileStringMapping)
-    unLocalisedValuesArray = Array.new
-    for value in localisedFileData do
-        if isValidKeyValueLocalisationString(value)
-
-            key, keyValue = extractKeyValueFromLocalisationString(value)
-            # we are checking base file text value to match with localisation file text value
-            if baseFileStringMapping[key] == keyValue
-                unLocalisedValuesArray.push(keyValue)
-            end
-        end
-    end
-    return unLocalisedValuesArray
-end
-
-#check 
-def isValidKeyValueLocalisationString(value) 
-    return value.include?("=") && value.scan(/"/).count == 4  && value.chars.last == ";"
-end
-
-#key value extraction
-def extractKeyValueFromLocalisationString(value)
-    key = value.partition("=").first
-    keyValue = value.partition("=").last
-    keyValue = keyValue.partition(";").first
-    return key, keyValue
-end
 
 puts "Started analyzing untranslated strings"
 # base file
@@ -56,15 +15,7 @@ baseFileData = baseFile.readlines.map(&:chomp)
 
 baseFileStringMapping = getFileStringMapping(baseFileData)
 
-# Get all language directory and extract un-translated strings and write to file
-directories = Dir.entries("./#{baseDirectory}").select  do |entry|
-    if entry.include?(".lproj")        
-        file = File.join("./#{baseDirectory}",entry)
-        File.directory?(file) && !(entry =='.' || entry == '..')     
-    else
-        false
-    end
-end
+directories = getAllFoldersFromDirectory(baseDirectory)
 
 FileUtils.rm_rf(extractedDirectoryName)
 Dir.mkdir(extractedDirectoryName)

@@ -1,93 +1,54 @@
 #!/usr/bin/ruby
+require_relative 'shared_localization_utilities'
 
 # Base directory
-baseDirectory = "path-to-localization-folder-/Localization"
+baseDirectory = "path-to-localization-files-folder/Localization"
 localisedStringFileName = "Localizable.strings"
 translatedDirectory = "translated_strings"
 
-# map strings to key-value pair
-def getFileStringMapping(fileData)
-    fileStringMapping = Hash.new
-    for value in fileData do
-        if isValidKeyValueLocalisationString(value)
-            key, keyValue = extractKeyValueFromLocalisationString(value)
-            fileStringMapping[key] = keyValue
-        end
-    end   
-    return fileStringMapping
-end
-
-# map strings to key-value pair
-def getTranslatedFileStringMapping(fileData)
-    fileStringMapping = Hash.new
-    for value in fileData do
-        if isValidKeyValueTranslatedString(value)
-            key, keyValue = extractKeyValueFromLocalisationString(value)
-            key = key.chop
-            fileStringMapping[key] = keyValue
-        end
-    end   
-    return fileStringMapping
-end
-
-# check localized file strings
-def isValidKeyValueLocalisationString(value) 
-    return value.include?("=") && value.scan(/"/).count == 4  && value.chars.last == ";"
-end
-
-# TODO: update once we get final translated string
-# check translated file strings
-def isValidKeyValueTranslatedString(value) 
-    return value.include?("=") && value.scan(/"/).count == 4
-end
-
-#key value extraction
-def extractKeyValueFromLocalisationString(value)
-    key = value.partition("=").first
-    keyValue = value.partition("=").last
-    keyValue = keyValue.partition(";").first
-    return key, keyValue
+if !Dir.exist?(translatedDirectory)
+    puts "Expected translated strings folder name #{translatedDirectory} with all language name files"
+    exit(false)
 end
 
 # Get all language directory and extract un-translated strings and write to file
-directories = Dir.entries("./#{baseDirectory}").select  do |entry|
-    if entry.include?(".lproj")        
-        file = File.join("./#{baseDirectory}",entry)
-        File.directory?(file) && !(entry =='.' || entry == '..')     
-    else
-        false
-    end
-end
-
+directories = getAllFoldersFromDirectory(baseDirectory)
 
 for directory in directories do
     dirName = directory.partition(".").first
     
     # update string for each language except base language file
     if dirName != "Base"
+       if File.file?("./#{translatedDirectory}/#{dirName}.txt")
         translatedFile = File.open("./#{translatedDirectory}/#{dirName}.txt", "r") 
         translatedFileData = translatedFile.readlines.map(&:chomp)
         translatedStringsMapping = getTranslatedFileStringMapping(translatedFileData)
         
         fileToUpdate = File.open("./#{baseDirectory}/#{directory}/#{localisedStringFileName}", "r") 
-        fileData = fileToUpdate.readlines.map(&:chomp)
-        updatedValuesArray = Array.new
+        fileToUpdateData = fileToUpdate.readlines.map(&:chomp)
+        updateValuesStringMapping = Hash.new
 
-        for value in fileData do
-            if isValidKeyValueLocalisationString(value)
-                key, keyValue = extractKeyValueFromLocalisationString(value)
+        for lineOfTextOfLocalisationFile in fileToUpdateData do
+            if isValidKeyValueLocalisationString(lineOfTextOfLocalisationFile)
+                key, keyValue = extractKeyValueFromLocalisationString(lineOfTextOfLocalisationFile)
                 if translatedStringsMapping.key?(keyValue)
-                    newValue = value.gsub! keyValue, "#{translatedStringsMapping[keyValue]}"
-                    updatedValuesArray.push(newValue)
+                    updateValuesStringMapping[key] = translatedStringsMapping[keyValue]
                 else
-                    updatedValuesArray.push(value)
+                    updateValuesStringMapping[key] = keyValue
                 end
             end
         end
         
-        updatedValuesArray.sort!
+        # sort and map as per localised string file
+        updatedLocalisedValuesArray = updateValuesStringMapping.sort.to_h.map do |key, value|
+            "\"#{key}\" = \"#{value}\";"
+        end
         
         # write to file
-        File.write("./#{baseDirectory}/#{directory}/#{localisedStringFileName}", updatedValuesArray.join("\n"), mode: "w")
+        File.write("./#{baseDirectory}/#{directory}/#{localisedStringFileName}", updatedLocalisedValuesArray.join("\n"), mode: "w")
+        puts "Updated string successfully in #{directory}/#{localisedStringFileName} file"
+       elsif 
+        puts "Translated file doesn't exist for #{directory}/#{localisedStringFileName} file" 
+       end
     end
 end
